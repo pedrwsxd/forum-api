@@ -10,20 +10,46 @@ export class QuestionsService {
     private prismaService: PrismaService,
   ) { }
 
-  async create(createQuestionDto: CreateQuestionDto, userId: number) {
-    
+  async create(createQuestionDto: CreateQuestionDto, user: { sub: number }) {
+
     return await this.prismaService.question.create({
-      data: { ...createQuestionDto, userId },
+      data: { ...createQuestionDto, userId: user.sub },
     })
   };
 
   async findAll() {
-    return await this.prismaService.question.findMany();
+    return await this.prismaService.question.findMany({
+      include: {
+        answers: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        }
+      },
+    });
   }
 
   async findOne(id: number) {
     return await this.prismaService.question.findUnique({
       where: { id },
+      include: {
+        answers: {
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            updatedAt: true,
+          }
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        }
+      },
     });
   }
 
@@ -35,7 +61,7 @@ export class QuestionsService {
   }
 
   async remove(id: number) {
-  
+
     return await this.prismaService.question.delete({
       where: { id },
     });
