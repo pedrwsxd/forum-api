@@ -1,43 +1,60 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
+/* ───────────────────  answer.controller.ts  ─────────────────── */
+
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  ParseIntPipe,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from 'src/auth/auth.guard';
 import { AnswerService } from './answer.service';
 import { CreateAnswerDto } from './dto/create-answer.dto';
 import { UpdateAnswerDto } from './dto/update-answer.dto';
-import { AuthGuard } from 'src/auth/auth.guard';
 
-@Controller('answer')
+@Controller('questions/:questionId/answers')
+@UseGuards(AuthGuard)                           // todas as rotas requerem login
 export class AnswerController {
-  constructor(private readonly answerService: AnswerService) {}
+  constructor(private readonly service: AnswerService) {}
 
-  @Post(':questionId')
-  @UseGuards(AuthGuard)
-  create(@Body() createAnswerDto: CreateAnswerDto, 
-  @Request() req: any,
-  @Param('questionId') questionId: string, 
+  /* CREATE ─────────────────────────────────────────────────── */
+  @Post()
+  create(
+    @Param('questionId', ParseIntPipe) questionId: number,
+    @Body() dto: CreateAnswerDto,
+    @Request() req: any,                  // AuthGuard → req.user.sub
   ) {
-    return this.answerService.create(createAnswerDto, req.sub, Number(questionId));
+    return this.service.create(questionId, dto, req.user.sub);
   }
 
+  /* LISTAR TODAS AS RESPOSTAS (opcional) ───────────────────── */
   @Get()
-  @UseGuards(AuthGuard)
-  findAll() {
-    return this.answerService.findAll();
+  findAll(@Param('questionId', ParseIntPipe) questionId: number) {
+    return this.service.findAll(questionId);
   }
 
+  /* DETALHE DE UMA RESPOSTA ───────────────────────────────── */
   @Get(':id')
-  @UseGuards(AuthGuard)
-  findOne(@Param('id') id: string) {
-    return this.answerService.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.service.findOne(id);
   }
 
+  /* UPDATE / DELETE ───────────────────────────────────────── */
   @Patch(':id')
-  @UseGuards(AuthGuard)
-  update(@Param('id') id: string, @Body() updateAnswerDto: UpdateAnswerDto) {
-    return this.answerService.update(+id, updateAnswerDto);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateAnswerDto,
+  ) {
+    return this.service.update(id, dto);
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard)
-  remove(@Param('id') id: string) {
-    return this.answerService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(id);
   }
 }

@@ -12,7 +12,7 @@ async function bootstrap() {
   app.enableCors({
     origin: 'http://localhost:3000',   // ✅ origem exata
     credentials: true,                // ✅ manda o header Access-Control-Allow-Credentials
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE, OPTIONS',
     allowedHeaders: 'Content-Type,Authorization',
   });
 

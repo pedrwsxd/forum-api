@@ -1,70 +1,88 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from 'src/database/prisma.service';
+import { plainToInstance } from 'class-transformer';
+
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
-import { PrismaService } from 'src/database/prisma.service';
+import { QuestionPublicDto } from './dto/public-question.dto';
+
 
 @Injectable()
 export class QuestionsService {
+  constructor(private readonly prisma: PrismaService) {}
 
-  constructor(
-    private prismaService: PrismaService,
-  ) { }
-
-  async create(createQuestionDto: CreateQuestionDto, user: { sub: number }) {
-
-    return await this.prismaService.question.create({
-      data: { ...createQuestionDto, userId: user.sub },
-    })
-  };
-
-  async findAll() {
-    return await this.prismaService.question.findMany({
-      include: {
-        answers: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-          },
-        }
+  /* ------------------------------------------------------------------ */
+  /*  CREATE — autor é o usuário autenticado (id = userId)               */
+  /* ------------------------------------------------------------------ */
+  async create(
+    dto: CreateQuestionDto,
+    userId: number, // controller envia req.user.sub
+  ): Promise<QuestionPublicDto> {
+    const question = await this.prisma.question.create({
+      data: {
+        title: dto.title,
+        content: dto.content,
+        userId,
       },
+      include: { user: true }, // pega autor
+    });
+
+    return plainToInstance(QuestionPublicDto, question, {
+      excludeExtraneousValues: true,
     });
   }
 
-  async findOne(id: number) {
-    return await this.prismaService.question.findUnique({
-      where: { id },
+  /* ------------------------------------------------------------------ */
+  /*  LISTAR TODAS AS PERGUNTAS (pode paginar depois)                    */
+  /* ------------------------------------------------------------------ */
+  async findAll(): Promise<QuestionPublicDto[]> {
+    const questions = await this.prisma.question.findMany({
+      orderBy: { createdAt: 'desc' },
       include: {
+        user: true,
         answers: {
-          select: {
-            id: true,
-            content: true,
-            createdAt: true,
-            updatedAt: true,
-          }
+          include: { user: true },
+          orderBy: { createdAt: 'asc' },
         },
-        user: {
-          select: {
-            id: true,
-            name: true,
-          },
-        }
       },
+    });
+
+    return plainToInstance(QuestionPublicDto, questions, {
+      excludeExtraneousValues: true,
     });
   }
 
-  async update(id: number, updateQuestionDto: UpdateQuestionDto) {
-    return await this.prismaService.question.update({
+  /* ------------------------------------------------------------------ */
+  /*  DETALHE DA PERGUNTA + RESPOSTAS                                    */
+  /* ------------------------------------------------------------------ */
+  async findOne(id: number): Promise<QuestionPublicDto> {
+    const question = await this.prisma.question.findUnique({
       where: { id },
-      data: updateQuestionDto,
+      include: {
+        user: true,
+        answers: {
+          include: { user: true },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    return plainToInstance(QuestionPublicDto, question, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  UPDATE / DELETE — mantém a lógica original                         */
+  /* ------------------------------------------------------------------ */
+  async update(id: number, dto: UpdateQuestionDto) {
+    return this.prisma.question.update({
+      where: { id },
+      data: dto,
     });
   }
 
   async remove(id: number) {
-
-    return await this.prismaService.question.delete({
-      where: { id },
-    });
-
+    return this.prisma.question.delete({ where: { id } });
   }
 }

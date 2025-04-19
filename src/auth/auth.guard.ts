@@ -1,38 +1,43 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Observable } from 'rxjs';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
+  constructor(private readonly jwtService: JwtService) {}
 
-      constructor(private jwtService: JwtService ) {}
-  
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const req = context.switchToHttp().getRequest();
 
-  async canActivate(
-    context: ExecutionContext,
-  ): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    const authorization = this.extractTokenFromHeader(request);
-    if (!authorization) {
-      throw new UnauthorizedException('Token is required');
-    }
-    
+    /* 1. Tenta pegar token do cookie */
+    let token: string | undefined = (req.cookies as any)?.token;
+
+    /* 2. Se não houver cookie, tenta cabeçalho Authorization */
+    if (!token) token = this.extractBearerToken(req);
+
+    if (!token) throw new UnauthorizedException('Token is required');
+
     try {
-      const payload = await this.jwtService.verifyAsync(authorization, {
-        secret: process.env.SECRET_KEY || '',
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_SECRET || process.env.SECRET_KEY || '',
       });
-      
-      request['sub'] = payload;
-    } catch (e) {
+
+      /* 3. Deixa o payload disponível para os controllers/services */
+      req.user = payload; // { sub, email, iat, exp, ... }
+      return true;
+    } catch {
       throw new UnauthorizedException('Invalid token');
     }
-    
-    return true;
   }
 
-  private extractTokenFromHeader(request: Request): string | undefined {
-    const [type, token] = (request.headers as any).authorization?.split(' ') ?? [];
+  private extractBearerToken(request: Request): string | undefined {
+    const auth = (request.headers as any).authorization;
+    if (!auth) return undefined;
+    const [type, token] = auth.split(' ');
     return type === 'Bearer' ? token : undefined;
   }
-  
 }
